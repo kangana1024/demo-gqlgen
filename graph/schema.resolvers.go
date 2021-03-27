@@ -5,19 +5,25 @@ package graph
 
 import (
 	"context"
+	"demographql/database"
 	"demographql/graph/generated"
 	"demographql/graph/model"
+	"demographql/utils"
 	"fmt"
+	"log"
+	"strconv"
 )
 
 func (r *mutationResolver) CreateLink(ctx context.Context, input model.NewLink) (*model.Link, error) {
-	var link model.Link
-	var user model.User
-	link.Address = input.Address
+	var link database.Links
 	link.Title = input.Title
-	user.Name = "test"
-	link.User = &user
-	return &link, nil
+	link.Address = input.Address
+	res := r.DB.Create(&link)
+
+	if res.Error != nil {
+		log.Panic("Insert Error.")
+	}
+	return &model.Link{ID: strconv.FormatInt(int64(link.ID), 10), Title: link.Title, Address: link.Address}, nil
 }
 
 func (r *mutationResolver) CreateUser(ctx context.Context, input model.NewUser) (string, error) {
@@ -33,14 +39,36 @@ func (r *mutationResolver) RefreshToken(ctx context.Context, input model.Refresh
 }
 
 func (r *queryResolver) Links(ctx context.Context) ([]*model.Link, error) {
-	var links []*model.Link
-	dummyLink := model.Link{
-		Title:   "our dummy link",
-		Address: "https://address.org",
-		User:    &model.User{Name: "admin"},
+	var links []database.Links
+	link := database.Links{}
+	err := link.GetAll(r.DB, &links, 100, 0)
+	if err != nil {
+		return nil, err
 	}
-	links = append(links, &dummyLink)
-	return links, nil
+	reslinks := []*model.Link{}
+	for _, linkr := range links {
+		tmp := &model.Link{
+			ID:      string(rune(linkr.ID)),
+			Title:   linkr.Title,
+			Address: linkr.Address,
+		}
+		if linkr.UserID != nil {
+			tmp.User = &model.User{
+				ID:   string(rune(*linkr.UserID)),
+				Name: string(linkr.Users.Username),
+			}
+		}
+		reslinks = append(reslinks, tmp)
+	}
+
+	if len(reslinks) > 0 {
+		return reslinks, nil
+	} else {
+		if err != nil {
+			return nil, utils.New("error")
+		}
+	}
+	return []*model.Link{}, nil
 }
 
 // Mutation returns generated.MutationResolver implementation.

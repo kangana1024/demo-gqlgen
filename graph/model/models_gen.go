@@ -9,6 +9,11 @@ type Link struct {
 	User    *User  `json:"user"`
 }
 
+type LinkRequest struct {
+	Take *int `json:"take"`
+	Skip *int `json:"skip"`
+}
+
 type Login struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
